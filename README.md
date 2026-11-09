@@ -1,6 +1,5 @@
 # 🏦 BankTransfer API
 
-[![CI](https://github.com/cristianEncarnacion/BankTransfer-API/actions/workflows/ci.yml/badge.svg)](https://github.com/cristianEncarnacion/BankTransfer-API/actions/workflows/ci.yml)
 
 API REST de transferencias bancarias construida con **Quarkus**, orientada a eventos con **Kafka**, persistencia en **PostgreSQL**, caché distribuida con **Redis** y seguridad con **Keycloak (OIDC)**. Todo el entorno se levanta con **Docker Compose**.
 
