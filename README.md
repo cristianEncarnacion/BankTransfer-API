@@ -1,5 +1,7 @@
 # 🏦 BankTransfer API
 
+[![CI](https://github.com/cristianEncarnacion/BankTransfer-API/actions/workflows/ci.yml/badge.svg)](https://github.com/cristianEncarnacion/BankTransfer-API/actions/workflows/ci.yml)
+
 API REST de transferencias bancarias construida con **Quarkus**, orientada a eventos con **Kafka**, persistencia en **PostgreSQL**, caché distribuida con **Redis** y seguridad con **Keycloak (OIDC)**. Todo el entorno se levanta con **Docker Compose**.
 
 ![Java](https://img.shields.io/badge/Java_21-ED8B00?style=flat&logo=openjdk&logoColor=white)
@@ -43,6 +45,7 @@ API REST de transferencias bancarias construida con **Quarkus**, orientada a eve
 - **Caché distribuida**: Redis con `@CacheResult` / `@CacheInvalidateAll` y expiración configurable.
 - **Migraciones versionadas** con Flyway (`db/migration`).
 - **Persistencia** con Hibernate ORM + Panache.
+- **Contraseñas hasheadas** con BCrypt.
 - **Contenerizado**: PostgreSQL, Kafka, Zookeeper, Redis y Keycloak en un solo `docker-compose`.
 
 ## 📡 Endpoints
@@ -72,14 +75,22 @@ curl -X POST http://localhost:8081/transferencias \
 # 1. Levantar infraestructura (PostgreSQL, Kafka, Redis, Keycloak)
 docker compose up -d
 
-# 2. Configurar en Keycloak (http://localhost:8080) el realm, el cliente "transfer-api"
-#    y el rol "cliente_banca" según application.properties
+# 2. Configurar en Keycloak (http://localhost:8080) el realm "banktransfer-realm",
+#    el cliente "transfer-api" y el rol "cliente_banca"
 
 # 3. Correr la API en modo dev (puerto 8081)
 ./mvnw quarkus:dev
 ```
 
 Las migraciones de Flyway se ejecutan automáticamente al iniciar.
+
+## 🧪 Tests
+
+```bash
+./mvnw test
+```
+
+Los tests usan `@QuarkusTest` y **no necesitan Docker ni conexión a internet**: Kafka se reemplaza por el conector en memoria de SmallRye, la base de datos por H2 en memoria, la seguridad con `@TestSecurity` y las dependencias con mocks (`@InjectMock`, `PanacheMock`).
 
 ## 🗂️ Estructura
 
@@ -98,7 +109,6 @@ src/main/resources/
 
 ## 🛣️ Próximos pasos
 
-- [ ] Tests de integración con `@QuarkusTest` y Dev Services
 - [ ] Validación de saldo y estados de la transferencia (PENDIENTE → COMPLETADA / RECHAZADA)
 - [ ] Manejo de errores y Dead Letter Queue en Kafka
 - [ ] Documentación OpenAPI / Swagger UI
