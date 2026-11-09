@@ -1,85 +1,108 @@
-# code-with-quarkus
+# 🏦 BankTransfer API
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+API REST de transferencias bancarias construida con **Quarkus**, orientada a eventos con **Kafka**, persistencia en **PostgreSQL**, caché distribuida con **Redis** y seguridad con **Keycloak (OIDC)**. Todo el entorno se levanta con **Docker Compose**.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+![Java](https://img.shields.io/badge/Java_21-ED8B00?style=flat&logo=openjdk&logoColor=white)
+![Quarkus](https://img.shields.io/badge/Quarkus_3.15-4695EB?style=flat&logo=quarkus&logoColor=white)
+![Kafka](https://img.shields.io/badge/Apache_Kafka-231F20?style=flat&logo=apachekafka&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL_16-4169E1?style=flat&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat&logo=redis&logoColor=white)
+![Keycloak](https://img.shields.io/badge/Keycloak-4D4D4D?style=flat&logo=keycloak&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)
 
-## Running the application in dev mode
+---
 
-You can run your application in dev mode that enables live coding using:
+## 🧭 Arquitectura
 
-```shell script
+```
+                ┌──────────────┐   JWT (OIDC)   ┌────────────┐
+  Cliente ────► │ TransferAPI  │ ◄────────────► │  Keycloak  │
+                │  (Quarkus)   │                └────────────┘
+                └──────┬───────┘
+          persist      │      cache (@CacheResult / @CacheInvalidateAll)
+     ┌─────────────────┼──────────────────┐
+     ▼                 ▼                  ▼
+┌──────────┐   ┌──────────────────┐   ┌──────────┐
+│PostgreSQL│   │   Kafka topic    │   │  Redis   │
+│ (Flyway) │   │ "transferencias" │   └──────────┘
+└──────────┘   └────────┬─────────┘
+                        ▼
+                NotificacionConsumer
+```
+
+1. El cliente se autentica contra **Keycloak** y llama a la API con un JWT (rol `cliente_banca`).
+2. `POST /transferencias` guarda la transferencia en **PostgreSQL** dentro de una transacción.
+3. Se publica un `TransferEvent` en el topic **`transferencias`** de Kafka.
+4. `NotificacionConsumer` consume el evento y procesa la notificación de forma asíncrona.
+5. Las consultas `GET` se cachean en **Redis** (TTL de 5 min) y la caché se invalida al crear una transferencia.
+
+## ✨ Características
+
+- **Event-driven**: desacople entre el registro de la transferencia y las notificaciones usando SmallRye Reactive Messaging + Kafka.
+- **Seguridad**: endpoints protegidos con OIDC/Keycloak y control de acceso por roles (`@RolesAllowed`).
+- **Caché distribuida**: Redis con `@CacheResult` / `@CacheInvalidateAll` y expiración configurable.
+- **Migraciones versionadas** con Flyway (`db/migration`).
+- **Persistencia** con Hibernate ORM + Panache.
+- **Contenerizado**: PostgreSQL, Kafka, Zookeeper, Redis y Keycloak en un solo `docker-compose`.
+
+## 📡 Endpoints
+
+Todos requieren un JWT válido con el rol `cliente_banca`.
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/transferencias` | Crea una transferencia y publica el evento en Kafka |
+| `GET` | `/transferencias` | Lista todas las transferencias (cacheado) |
+| `GET` | `/transferencias/{id}` | Obtiene una transferencia por ID (cacheado) |
+
+**Ejemplo de request:**
+
+```bash
+curl -X POST http://localhost:8081/transferencias \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"cuentaOrigen":"1001234567","cuentaDestino":"2009876543","monto":1500.00}'
+```
+
+## 🚀 Cómo correrlo
+
+**Requisitos:** Java 21, Maven (o el wrapper incluido) y Docker.
+
+```bash
+# 1. Levantar infraestructura (PostgreSQL, Kafka, Redis, Keycloak)
+docker compose up -d
+
+# 2. Configurar en Keycloak (http://localhost:8080) el realm, el cliente "transfer-api"
+#    y el rol "cliente_banca" según application.properties
+
+# 3. Correr la API en modo dev (puerto 8081)
 ./mvnw quarkus:dev
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+Las migraciones de Flyway se ejecutan automáticamente al iniciar.
 
-## Packaging and running the application
+## 🗂️ Estructura
 
-The application can be packaged using:
-
-```shell script
-./mvnw package
+```
+src/main/java/org/acme/
+├── TransferResource.java      # Endpoints REST + caché
+├── TransferService.java       # Lógica de negocio + emisión de eventos
+├── NotificacionConsumer.java  # Consumidor Kafka
+├── Transfer.java              # Entidad JPA (Panache)
+├── TransferEvent.java         # Evento (record)
+└── User.java                  # Entidad de usuarios
+src/main/resources/
+├── application.properties
+└── db/migration/              # Scripts Flyway
 ```
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+## 🛣️ Próximos pasos
 
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
+- [ ] Tests de integración con `@QuarkusTest` y Dev Services
+- [ ] Validación de saldo y estados de la transferencia (PENDIENTE → COMPLETADA / RECHAZADA)
+- [ ] Manejo de errores y Dead Letter Queue en Kafka
+- [ ] Documentación OpenAPI / Swagger UI
 
-If you want to build an _über-jar_, execute the following command:
+---
 
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
-```
-
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
-
-## Creating a native executable
-
-You can create a native executable using:
-
-```shell script
-./mvnw package -Dnative
-```
-
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
-
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
-```
-
-You can then execute your native executable with: `./target/code-with-quarkus-1.0.0-SNAPSHOT-runner`
-
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
-
-## Related Guides
-
-- REST resources for Hibernate ORM with Panache ([guide](https://quarkus.io/guides/rest-data-panache)): Generate Jakarta REST resources for your Hibernate Panache entities and repositories
-- Flyway ([guide](https://quarkus.io/guides/flyway)): Handle your database schema migrations
-- REST Jackson ([guide](https://quarkus.io/guides/rest#json-serialisation)): Jackson serialization support for Quarkus REST. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it
-- Messaging - Kafka Connector ([guide](https://quarkus.io/guides/kafka-getting-started)): Connect to Kafka with Reactive Messaging
-- SmallRye JWT ([guide](https://quarkus.io/guides/security-jwt)): Secure your applications with JSON Web Token
-- JDBC Driver - PostgreSQL ([guide](https://quarkus.io/guides/datasource)): Connect to the PostgreSQL database via JDBC
-
-## Provided Code
-
-### REST Data with Panache
-
-Generating Jakarta REST resources with Panache
-
-[Related guide section...](https://quarkus.io/guides/rest-data-panache)
-
-
-### Messaging codestart
-
-Use Quarkus Messaging
-
-[Related Apache Kafka guide section...](https://quarkus.io/guides/kafka-reactive-getting-started)
-
-
-### REST
-
-Easily start your REST Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
+Desarrollado por **[Cristian Encarnación](https://github.com/cristianEncarnacion)** 🇩🇴
