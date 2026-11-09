@@ -48,41 +48,11 @@ public class Transfer extends PanacheEntityBase {
         this.fecha = fecha;
     }
 
-    @Override
-    public void delete() {
-        // TODO Auto-generated method stub
-        super.delete();
-    }
 
-    @Override
-    public boolean isPersistent() {
-        // TODO Auto-generated method stub
-        return super.isPersistent();
-    }
 
-    @Override
-    public void persist() {
-        // TODO Auto-generated method stub
-        super.persist();
-    }
 
-    @Override
-    public void persistAndFlush() {
-        // TODO Auto-generated method stub
-        super.persistAndFlush();
-    }
 
-    @Override
-    protected Object clone() throws CloneNotSupportedException {
-        // TODO Auto-generated method stub
-        return super.clone();
-    }
 
-    @Override
-    protected void finalize() throws Throwable {
-        // TODO Auto-generated method stub
-        super.finalize();
-    }
 
     @Override
     public String toString() {
